@@ -473,7 +473,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
                 operationId: operationId,
             }
         })
-        if (!paymentOperation?.data || this.validateWebhookPayloadAndOriginalOperation(payloadData, paymentOperation.data as unknown as AcquiringGetPaymentOperationListItemModel)) {
+        if (!paymentOperation.data || this.validateWebhookPayloadAndOriginalOperation(payloadData, paymentOperation.data as unknown as AcquiringGetPaymentOperationListItemModel)) {
             this.logger_.warn(`TochkaBase.getWebhookActionAndData invalid webhook payload for original payment or original payment not found`)
             return {
                 action: PaymentActions.NOT_SUPPORTED
@@ -552,7 +552,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
     }
 
     protected validateWebhookPayloadAndOriginalOperation(payload: TochkaWebhookPayload, originalOperation: AcquiringGetPaymentOperationListItemModel): boolean {
-        return payload.status === originalOperation.status && payload.operationId === originalOperation.operationId;
+        return payload.operationId === originalOperation.operationId;
     }
 
     /**
