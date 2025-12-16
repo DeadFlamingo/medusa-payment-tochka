@@ -473,7 +473,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
                 operationId: operationId,
             }
         })
-        if (!paymentOperation.data || this.validateWebhookPayloadAndOriginalOperation(payloadData, paymentOperation.data as unknown as AcquiringGetPaymentOperationListItemModel)) {
+        if (!paymentOperation.data || !this.validateWebhookPayloadAndOriginalOperation(payloadData, paymentOperation.data as unknown as AcquiringGetPaymentOperationListItemModel)) {
             this.logger_.warn(`TochkaBase.getWebhookActionAndData invalid webhook payload for original payment or original payment not found`)
             return {
                 action: PaymentActions.NOT_SUPPORTED
