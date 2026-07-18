@@ -119,7 +119,11 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
             this.options_.preAuthorization ??
             false
 
-        res.paymentMode = this.paymentOptions?.paymentMode ?? [AcquiringPaymentMode.Card]
+        res.paymentMode =
+            extra?.paymentMode as AcquiringCreatePaymentOperationRequestModel["paymentMode"] ??
+            this.paymentOptions?.paymentMode ??
+            this.options_.paymentMode ??
+            [AcquiringPaymentMode.Card]
 
         res.redirectUrl = extra?.redirectUrl as string
         res.failRedirectUrl = extra?.failRedirectUrl as string

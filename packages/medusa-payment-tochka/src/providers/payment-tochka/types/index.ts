@@ -32,6 +32,10 @@ export interface TochkaOptions {
      */
     preAuthorization?: boolean,
     /**
+     * Allowed payment modes for payment links (for example: card, sbp, dolyame)
+     */
+    paymentMode?: AcquiringCreatePaymentOperationRequestModel["paymentMode"],
+    /**
      * Set a default purpose on the payment if the context does not provide one
      */
     paymentPurpose?: string,
