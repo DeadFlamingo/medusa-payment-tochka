@@ -56,6 +56,10 @@ export interface TochkaOptions {
      * Default VAT rate for shipping
      */
     taxShippingDefault?: VatType,
+    /**
+     * Storefront origin used for payment redirects
+     */
+    storefrontUrl?: string,
 }
 
 export interface PaymentOptions extends Partial<AcquiringCreatePaymentOperationRequestModel> {

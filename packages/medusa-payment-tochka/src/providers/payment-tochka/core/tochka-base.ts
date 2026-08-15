@@ -36,7 +36,6 @@ import {
     AcquiringGetPaymentOperationListItemModel,
     AcquiringPaymentMode,
     AcquiringPaymentStatus,
-    TaxSystemCodeInput,
     TochkaBankAcquiring,
     TochkaBankSDK,
     TochkaBankWebhook,
@@ -103,36 +102,59 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
         return this.options_
     }
 
+    private sameOriginUrl(
+        storefrontUrl: string,
+        candidate: unknown,
+        fallback: string
+    ) {
+        if (typeof candidate !== 'string') {
+            return fallback
+        }
+
+        try {
+            const allowed = new URL(storefrontUrl)
+            const actual = new URL(candidate)
+            if (actual.origin === allowed.origin && actual.protocol === allowed.protocol) {
+                return candidate
+            }
+        } catch {
+            return fallback
+        }
+
+        return fallback
+    }
+
     private normalizePaymentParameters(
         extra?: Record<string, unknown>
     ): Partial<AcquiringCreatePaymentOperationRequestModel> {
         const res = {} as Partial<AcquiringCreatePaymentOperationRequestModel>
 
-        res.purpose =
-            extra?.purpose as string ??
-            this.options_?.paymentPurpose ??
-            'Payment'
+        res.purpose = this.options_?.paymentPurpose ?? 'Payment'
 
         res.preAuthorization =
-            extra?.preAuthorization as boolean ??
             this.paymentOptions.preAuthorization ??
             this.options_.preAuthorization ??
             false
 
         res.paymentMode =
-            extra?.paymentMode as AcquiringCreatePaymentOperationRequestModel["paymentMode"] ??
             this.paymentOptions?.paymentMode ??
             this.options_.paymentMode ??
             [AcquiringPaymentMode.Card]
 
-        res.redirectUrl = extra?.redirectUrl as string
-        res.failRedirectUrl = extra?.failRedirectUrl as string
-        res.saveCard = extra?.saveCard as boolean
-        res.consumerId = extra?.consumerId as string
-        res.merchantId = extra?.merchantId as string
-        res.ttl = extra?.ttl as number
+        // Redirects are derived from the configured storefront origin. Caller-supplied
+        // URLs are accepted only when they share that origin; tax/merchant fields stay
+        // on provider options so a Store API client cannot steer the payment.
+        const storefrontUrl = (this.options_.storefrontUrl || '').replace(/\/$/, '')
+        const cartId = (extra?.cart as { id?: unknown } | undefined)?.id
+        if (storefrontUrl && typeof cartId === 'string' && cartId.length > 0) {
+            const fallbackRedirectUrl = `${storefrontUrl}/api/capture-payment/${encodeURIComponent(cartId)}`
+            const fallbackFailRedirectUrl = `${storefrontUrl}/checkout?step=review&error=payment_failed`
+            res.redirectUrl = this.sameOriginUrl(storefrontUrl, extra?.redirectUrl, fallbackRedirectUrl)
+            res.failRedirectUrl = this.sameOriginUrl(storefrontUrl, extra?.failRedirectUrl, fallbackFailRedirectUrl)
+        }
+
         const sessionId = extra?.session_id as string
-        if (sessionId && sessionId.length > 0 && sessionId.length < 46) {
+        if (sessionId && /^[A-Za-z0-9_-]{1,45}$/.test(sessionId)) {
             // workaround to store session_id in tochka without own persistence
             res.paymentLinkId = sessionId
         }
@@ -148,7 +170,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
         const res = {} as Partial<AcquiringCreatePaymentOperationWithReceiptRequestModel>
         Object.assign(res, baseParams)
 
-        res.taxSystemCode = extra?.taxSystemCode as TaxSystemCodeInput ?? this.options_.taxSystemCode
+        res.taxSystemCode = this.options_.taxSystemCode
 
         return res
     }
