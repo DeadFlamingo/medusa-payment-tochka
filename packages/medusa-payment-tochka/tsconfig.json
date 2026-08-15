@@ -31,6 +31,7 @@
     ".medusa/server",
     ".medusa/admin",
     "src/admin",
+    "src/**/__tests__",
     ".cache"
   ]
 }

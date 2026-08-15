@@ -91,6 +91,31 @@ module.exports = defineConfig({
 })
 ```
 
+Also register the plugin itself so Medusa Admin can load the settings page:
+
+```typescript
+plugins: [
+    {
+        resolve: "medusa-payment-tochka",
+        options: {},
+    },
+]
+```
+
+## Admin
+
+After the plugin is registered, Medusa Admin shows **Extensions → Tochka**.
+
+The page stores settings on the store record and applies them on the next payment without a backend restart:
+
+- JWT token, client ID, API version and Production / Developer mode
+- Payment purpose, two-step payments and storefront URL
+- Payment methods: card, SBP, Tinkoff instalments, Dolyame
+- 54-FZ receipts, tax system and VAT
+- Webhook public JWK
+
+Secrets are masked in the UI. Leave a secret field empty to keep the current value. Environment variables remain the bootstrap fallback until the admin page is saved.
+
 ## Environment Variables
 
 Create a `.env` file with the following variables:

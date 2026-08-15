@@ -43,18 +43,28 @@ import {
 import {PaymentOptions, TochkaOptions, TochkaWebhookPayload} from "../types"
 import {generateTochkaReceipt} from "../utils"
 import {ExternalTypeEnum} from "tochka-sdk/dist/tochka-api/tochka-api";
+import {
+    mergeRuntimeTochkaOptions,
+    runtimeOptionsFingerprint,
+    RuntimeTochkaOptions,
+    toRuntimeTochkaOptions,
+    fromRuntimeTochkaOptions,
+} from "../../../lib/tochka-options"
+import { getTochkaRuntimeOptionsWorkflow } from "../../../workflows/get-tochka-runtime-options"
 
 type InjectedDependencies = {
     logger: Logger
 }
 
 abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
-    protected readonly options_: TochkaOptions
+    protected readonly bootstrapOptions_: TochkaOptions
+    protected options_: TochkaOptions
     protected tochkaSDK_: TochkaBankSDK
     protected tochkaWebhook_: TochkaBankWebhook
     protected logger_: Logger
     protected tochkaAcquiring_: TochkaBankAcquiring
     protected publicKeyJWK_: any
+    protected optionsFingerprint_?: string
 
     static validateOptions(options: TochkaOptions): void {
         if (!isDefined(options.tochkaJwtToken)) {
@@ -84,16 +94,66 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
         super(...arguments)
 
         this.logger_ = container.logger
-        this.options_ = options
+        this.bootstrapOptions_ = options
+        this.applyRuntimeOptions_(
+            toRuntimeTochkaOptions(fromRuntimeTochkaOptions(options))
+        )
+        this.logger_.info(`TochkaBase payment provider was created successfully: api_v=${this.tochkaSDK_.getApiVersion()}, url=${this.tochkaSDK_.getBaseUrl()}`)
+    }
+
+    protected async syncRuntimeOptions_(): Promise<void> {
+        try {
+            const { result } = await getTochkaRuntimeOptionsWorkflow().run()
+            this.applyRuntimeOptions_(
+                mergeRuntimeTochkaOptions(this.bootstrapOptions_, result)
+            )
+        } catch (error) {
+            this.logger_.warn(
+                `Tochka store settings were not loaded; using provider bootstrap options. ${
+                    error instanceof Error ? error.message : String(error)
+                }`
+            )
+        }
+    }
+
+    protected applyRuntimeOptions_(runtime: RuntimeTochkaOptions): void {
+        this.options_ = {
+            tochkaJwtToken: runtime.tochkaJwtToken,
+            clientId: runtime.clientId,
+            webhookPublicKeyJson: runtime.webhookPublicKeyJson,
+            tochkaApiVersion: runtime.tochkaApiVersion,
+            developerMode: runtime.developerMode,
+            preAuthorization: runtime.preAuthorization,
+            paymentMode: runtime.paymentMode as TochkaOptions["paymentMode"],
+            paymentPurpose: runtime.paymentPurpose,
+            withReceipt: runtime.withReceipt,
+            taxSystemCode: runtime.taxSystemCode as TochkaOptions["taxSystemCode"],
+            taxItemDefault: runtime.taxItemDefault as TochkaOptions["taxItemDefault"],
+            taxShippingDefault: runtime.taxShippingDefault as TochkaOptions["taxShippingDefault"],
+            storefrontUrl: runtime.storefrontUrl,
+        }
+
+        const fingerprint = runtimeOptionsFingerprint(runtime)
+        if (fingerprint === this.optionsFingerprint_ && this.tochkaSDK_) {
+            return
+        }
+
         this.tochkaSDK_ = new TochkaBankSDK({
-            jwtToken: options.tochkaJwtToken,
-            clientId: options.clientId,
-            isDevelopment: options.developerMode ?? false,
+            jwtToken: runtime.tochkaJwtToken,
+            clientId: runtime.clientId,
+            isDevelopment: runtime.developerMode,
         })
         this.tochkaWebhook_ = this.tochkaSDK_.Webhook
         this.tochkaAcquiring_ = this.tochkaSDK_.Acquiring
-        this.publicKeyJWK_ = JSON.parse(this.options_.webhookPublicKeyJson)
-        this.logger_.info(`TochkaBase payment provider was created successfully: api_v=${this.tochkaSDK_.getApiVersion()}, url=${this.tochkaSDK_.getBaseUrl()}`)
+        try {
+            this.publicKeyJWK_ = runtime.webhookPublicKeyJson
+                ? JSON.parse(runtime.webhookPublicKeyJson)
+                : undefined
+        } catch {
+            this.logger_.error("Tochka webhook public key JSON is invalid")
+            this.publicKeyJWK_ = undefined
+        }
+        this.optionsFingerprint_ = fingerprint
     }
 
     abstract get paymentOptions(): PaymentOptions
@@ -184,6 +244,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
                               data,
                               context,
                           }: InitiatePaymentInput): Promise<InitiatePaymentOutput> {
+        await this.syncRuntimeOptions_()
         this.logger_.debug(`TochkaBase.initiatePayment input:\n${JSON.stringify({
             currency_code,
             amount,
@@ -256,6 +317,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
     async getPaymentStatus(
         input: GetPaymentStatusInput
     ): Promise<GetPaymentStatusOutput> {
+        await this.syncRuntimeOptions_()
         this.logger_.debug(`TochkaBase.getPaymentStatus input:\n${JSON.stringify(input, null, 2)}`)
 
         const id = (input.data?.id || input.data?.operationId) as string
@@ -312,6 +374,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
      * Capture an existing payment.
      */
     async capturePayment(input: CapturePaymentInput): Promise<CapturePaymentOutput> {
+        await this.syncRuntimeOptions_()
         this.logger_.debug(`TochkaBase.capturePayment input:\n${JSON.stringify(input, null, 2)}`)
 
         const id = (input.data?.id || input.data?.operationId) as string
@@ -375,6 +438,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
      * Retrieve a payment.
      */
     async retrievePayment(input: RetrievePaymentInput): Promise<RetrievePaymentOutput> {
+        await this.syncRuntimeOptions_()
         this.logger_.debug(`TochkaBase.retrievePayment input:\n${JSON.stringify(input, null, 2)}`)
 
         const id = (input.data?.id || input.data?.operationId) as string
@@ -418,6 +482,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
                             data,
                             context,
                         }: RefundPaymentInput): Promise<RefundPaymentOutput> {
+        await this.syncRuntimeOptions_()
         this.logger_.debug(`TochkaBase.refundPayment input:\n${JSON.stringify({amount, data, context}, null, 2)}`)
 
         const operationId = (data?.id || data?.operationId) as string
@@ -482,6 +547,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
      * Process webhook event and map it to Medusa action.
      */
     async getWebhookActionAndData(webhookData: ProviderWebhookPayload["payload"]): Promise<WebhookActionResult> {
+        await this.syncRuntimeOptions_()
         this.logger_.debug(`TochkaBase.getWebhookActionAndData payload:\n${JSON.stringify(webhookData, null, 2)}`)
 
         const payloadData = await this.parseWebhookPayload(webhookData)
@@ -555,6 +621,9 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
      */
     protected async parseWebhookPayload(webhookData: ProviderWebhookPayload["payload"]): Promise<TochkaWebhookPayload | undefined> {
         try {
+            if (!this.publicKeyJWK_) {
+                throw new Error("Tochka webhook public key is not configured")
+            }
             const jose = await import('jose');
             const jwks = jose.createLocalJWKSet({
                 keys: [this.publicKeyJWK_]
