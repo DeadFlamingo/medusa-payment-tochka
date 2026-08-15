@@ -1,5 +1,5 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
-import { CreditCard } from "@medusajs/icons"
+import { CreditCard, Spinner } from "@medusajs/icons"
 import {
   Badge,
   Button,
@@ -9,7 +9,6 @@ import {
   Input,
   Label,
   Select,
-  Spinner,
   StatusBadge,
   Switch,
   Text,
