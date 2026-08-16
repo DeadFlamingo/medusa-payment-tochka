@@ -399,17 +399,15 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
 
     /**
      * Authorize a payment by retrieving its status.
+     *
+     * One-step Tochka payments are already APPROVED at the bank. Returning
+     * `captured` lets Medusa record the capture so refunds work. Two-step
+     * holds stay `authorized` until capture.
      */
     async authorizePayment(input: AuthorizePaymentInput): Promise<AuthorizePaymentOutput> {
         this.logger_.debug(`TochkaBase.authorizePayment input:\n${JSON.stringify(input, null, 2)}`)
 
         const output = await this.getPaymentStatus(input)
-        if (output.status === PaymentSessionStatus.CAPTURED) {
-            return {
-                ...output,
-                status: PaymentSessionStatus.AUTHORIZED,
-            }
-        }
         this.logger_.debug(`TochkaBase.authorizePayment output:\n${JSON.stringify(output, null, 2)}`)
 
         return output
