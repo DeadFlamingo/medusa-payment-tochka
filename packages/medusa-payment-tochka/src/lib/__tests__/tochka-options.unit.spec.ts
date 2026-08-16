@@ -185,12 +185,10 @@ describe("Tochka stored options", () => {
     expect(
       preferReachablePaymentUrl(
         "https://0.0.0.0:8010",
-        "https://deadflamingo.space/checkout?step=review&error=payment_failed",
-        "https://0.0.0.0:8010/checkout?step=review&error=payment_failed"
+        "https://deadflamingo.space/api/resume-checkout/cart_01TEST",
+        "https://0.0.0.0:8010/api/resume-checkout/cart_01TEST"
       )
-    ).toBe(
-      "https://deadflamingo.space/checkout?step=review&error=payment_failed"
-    )
+    ).toBe("https://deadflamingo.space/api/resume-checkout/cart_01TEST")
   })
 })
 

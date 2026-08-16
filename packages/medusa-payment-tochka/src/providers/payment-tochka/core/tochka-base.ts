@@ -187,7 +187,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
         const cartId = (extra?.cart as { id?: unknown } | undefined)?.id
         if (typeof cartId === 'string' && cartId.length > 0) {
             const fallbackRedirectUrl = `${storefrontUrl}/api/capture-payment/${encodeURIComponent(cartId)}`
-            const fallbackFailRedirectUrl = `${storefrontUrl}/checkout?step=review&error=payment_failed`
+            const fallbackFailRedirectUrl = `${storefrontUrl}/api/resume-checkout/${encodeURIComponent(cartId)}`
             res.redirectUrl = preferReachablePaymentUrl(
                 storefrontUrl,
                 extra?.redirectUrl,
