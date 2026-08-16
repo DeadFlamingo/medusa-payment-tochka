@@ -14,11 +14,15 @@ export function generateTochkaReceipt(cart: Record<string, any>, taxItem?: VatTy
 } {
     const email = cart?.email as string
     const phone = cart?.shipping_address?.phone as string
-    const items = cart?.items as Array<Record<string, any>>
+    const items = Array.isArray(cart?.items) ? cart.items as Array<Record<string, any>> : []
     const currencyCode = cart?.currency_code as string
     const shippingTotal = cart?.shipping_total as number
     const shippingMethods = cart?.shipping_methods as Array<Record<string, any>>
     const shippingAddress = cart?.shipping_address as Record<string, any>
+
+    if (!items.length) {
+        throw new Error("Tochka receipt requires cart items")
+    }
 
     const fullName = `${shippingAddress?.last_name || ''} ${shippingAddress?.first_name || ''}`.trim()
 

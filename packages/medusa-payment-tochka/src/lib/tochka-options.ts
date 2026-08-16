@@ -46,6 +46,7 @@ export type StoredTochkaOptions = {
   tax_item_default: TochkaVatType
   tax_shipping_default: TochkaVatType
   storefront_url: string
+  customer_code: string
 }
 
 export type PublicTochkaOptions = Omit<
@@ -72,6 +73,7 @@ export type TochkaOptionsPatch = Partial<{
   tax_item_default: TochkaVatType
   tax_shipping_default: TochkaVatType
   storefront_url: string
+  customer_code: string
 }>
 
 export type RuntimeTochkaOptions = {
@@ -88,6 +90,7 @@ export type RuntimeTochkaOptions = {
   taxItemDefault: TochkaVatType
   taxShippingDefault: TochkaVatType
   storefrontUrl: string
+  customerCode: string
 }
 
 export const DEFAULT_TOCHKA_OPTIONS: StoredTochkaOptions = {
@@ -104,6 +107,7 @@ export const DEFAULT_TOCHKA_OPTIONS: StoredTochkaOptions = {
   tax_item_default: "vat0",
   tax_shipping_default: "vat0",
   storefront_url: "",
+  customer_code: "",
 }
 
 export function isTochkaPaymentMode(value: unknown): value is TochkaPaymentMode {
@@ -248,6 +252,10 @@ export function normalizeStoredTochkaOptions(
       input.storefront_url,
       DEFAULT_TOCHKA_OPTIONS.storefront_url
     ).replace(/\/$/, ""),
+    customer_code: asString(
+      input.customer_code,
+      DEFAULT_TOCHKA_OPTIONS.customer_code
+    ).trim(),
   }
 }
 
@@ -273,6 +281,7 @@ export function readEnvTochkaOptions(
     tax_item_default: env.TOCHKA_TAX_ITEM_DEFAULT,
     tax_shipping_default: env.TOCHKA_TAX_SHIPPING_DEFAULT,
     storefront_url: env.STOREFRONT_URL ?? "",
+    customer_code: env.TOCHKA_CUSTOMER_CODE ?? "",
   })
 }
 
@@ -339,6 +348,7 @@ export function toRuntimeTochkaOptions(
     taxItemDefault: options.tax_item_default,
     taxShippingDefault: options.tax_shipping_default,
     storefrontUrl: options.storefront_url,
+    customerCode: options.customer_code,
   }
 }
 
@@ -359,6 +369,7 @@ export function fromRuntimeTochkaOptions(
     tax_item_default: options.taxItemDefault,
     tax_shipping_default: options.taxShippingDefault,
     storefront_url: options.storefrontUrl,
+    customer_code: options.customerCode,
   })
 }
 
@@ -426,4 +437,30 @@ export function validateStorefrontUrl(value: string): void {
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new Error("Storefront URL must use http or https.")
   }
+}
+
+export type TochkaCustomerRecord = {
+  customerType?: string
+  customerCode?: string
+}
+
+export const TOCHKA_BUSINESS_CUSTOMER_TYPE = "Business"
+
+export function pickTochkaCustomerCode(
+  configured: string | undefined,
+  customers: TochkaCustomerRecord[] | undefined
+): string | undefined {
+  const fromConfig = configured?.trim()
+  if (fromConfig) {
+    return fromConfig
+  }
+
+  const list = customers ?? []
+  return (
+    list.find(
+      (customer) =>
+        customer.customerType === TOCHKA_BUSINESS_CUSTOMER_TYPE &&
+        customer.customerCode
+    )?.customerCode ?? list.find((customer) => customer.customerCode)?.customerCode
+  )
 }

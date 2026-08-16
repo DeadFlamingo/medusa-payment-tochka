@@ -60,6 +60,10 @@ export interface TochkaOptions {
      * Storefront origin used for payment redirects
      */
     storefrontUrl?: string,
+    /**
+     * Tochka OpenBanking customer code. Used when the customer list cannot be loaded.
+     */
+    customerCode?: string,
 }
 
 export interface PaymentOptions extends Partial<AcquiringCreatePaymentOperationRequestModel> {

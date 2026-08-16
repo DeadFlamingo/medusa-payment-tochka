@@ -42,6 +42,10 @@ const en = {
         label: "Client ID",
         placeholder: "Tochka client ID",
       },
+      customerCode: {
+        label: "Customer Code",
+        placeholder: "OpenBanking customer code",
+      },
       mode: { label: "Mode" },
       apiVersion: { label: "API Version" },
     },
@@ -172,6 +176,10 @@ const ru: typeof en = {
       clientId: {
         label: "Client ID",
         placeholder: "Client ID Точки",
+      },
+      customerCode: {
+        label: "Код клиента",
+        placeholder: "Код клиента OpenBanking",
       },
       mode: { label: "Режим" },
       apiVersion: { label: "Версия API" },

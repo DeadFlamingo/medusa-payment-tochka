@@ -19,6 +19,7 @@ export const AdminUpdateTochkaOptions = z.object({
   tax_item_default: z.enum(TOCHKA_VAT_TYPES).optional(),
   tax_shipping_default: z.enum(TOCHKA_VAT_TYPES).optional(),
   storefront_url: z.string().optional(),
+  customer_code: z.string().optional(),
 })
 
 export type AdminUpdateTochkaOptions = z.infer<typeof AdminUpdateTochkaOptions>

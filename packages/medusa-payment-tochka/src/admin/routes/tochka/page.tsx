@@ -202,6 +202,10 @@ const GeneralSection = ({
         value={options.client_id || "-"}
       />
       <SectionRow
+        title={copy.general.fields.customerCode.label}
+        value={options.customer_code || "-"}
+      />
+      <SectionRow
         title={copy.general.fields.mode.label}
         value={
           <Badge size="2xsmall" className="block w-fit truncate">
@@ -494,12 +498,14 @@ const GeneralEdit = ({
   )
   const [jwtToken, setJwtToken] = useState("")
   const [clientId, setClientId] = useState(options.client_id)
+  const [customerCode, setCustomerCode] = useState(options.customer_code)
   const [developerMode, setDeveloperMode] = useState(options.developer_mode)
   const [apiVersion, setApiVersion] = useState(options.api_version)
 
   useEffect(() => {
     setJwtToken("")
     setClientId(options.client_id)
+    setCustomerCode(options.customer_code)
     setDeveloperMode(options.developer_mode)
     setApiVersion(options.api_version)
   }, [options, open])
@@ -515,6 +521,7 @@ const GeneralEdit = ({
         submit({
           jwt_token: jwtToken,
           client_id: clientId,
+          customer_code: customerCode,
           developer_mode: developerMode,
           api_version: apiVersion,
         })
@@ -534,6 +541,13 @@ const GeneralEdit = ({
           placeholder={copy.general.fields.clientId.placeholder}
           value={clientId}
           onChange={(event) => setClientId(event.target.value)}
+        />
+      </Field>
+      <Field label={copy.general.fields.customerCode.label}>
+        <Input
+          placeholder={copy.general.fields.customerCode.placeholder}
+          value={customerCode}
+          onChange={(event) => setCustomerCode(event.target.value)}
         />
       </Field>
       <Field label={copy.general.fields.mode.label}>

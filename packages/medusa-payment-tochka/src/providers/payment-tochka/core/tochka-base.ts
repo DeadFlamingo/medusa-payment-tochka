@@ -2,6 +2,7 @@ import {
     AbstractPaymentProvider,
     BigNumber,
     isDefined,
+    MedusaError,
     PaymentActions,
     PaymentSessionStatus
 } from "@medusajs/framework/utils"
@@ -42,9 +43,9 @@ import {
 } from "tochka-sdk";
 import {PaymentOptions, TochkaOptions, TochkaWebhookPayload} from "../types"
 import {generateTochkaReceipt} from "../utils"
-import {ExternalTypeEnum} from "tochka-sdk/dist/tochka-api/tochka-api";
 import {
     mergeRuntimeTochkaOptions,
+    pickTochkaCustomerCode,
     runtimeOptionsFingerprint,
     RuntimeTochkaOptions,
     toRuntimeTochkaOptions,
@@ -131,6 +132,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
             taxItemDefault: runtime.taxItemDefault as TochkaOptions["taxItemDefault"],
             taxShippingDefault: runtime.taxShippingDefault as TochkaOptions["taxShippingDefault"],
             storefrontUrl: runtime.storefrontUrl,
+            customerCode: runtime.customerCode,
         }
 
         const fingerprint = runtimeOptionsFingerprint(runtime)
@@ -261,7 +263,10 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
             }
             const customerCode = await this.getCustomerCodeForPayment()
             if (!customerCode) {
-                throw new Error(`Customer code is undefined`)
+                throw new MedusaError(
+                    MedusaError.Types.INVALID_DATA,
+                    "Tochka customer code is missing. Set TOCHKA_CUSTOMER_CODE or save it in Admin → Tochka."
+                )
             }
 
             if (this.options_.withReceipt) {
@@ -654,24 +659,44 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
      * Helper to build errors with additional context.
      */
     protected buildError(message: string, error: Error | AxiosError): Error {
+        if (error instanceof MedusaError) {
+            return error
+        }
         if (error instanceof AxiosError && error.response) {
-            return new Error(
+            return new MedusaError(
+                MedusaError.Types.UNEXPECTED_STATE,
                 `${message}: ${error.response?.status} ${error.response?.data?.code || ''} - ${error.response?.data?.description || error.response?.statusText}`.trim()
             )
         }
-        return new Error(
+        return new MedusaError(
+            MedusaError.Types.UNEXPECTED_STATE,
             `${message}: ${error.message}`.trim()
         )
     }
 
     protected async getCustomerCodeForPayment(): Promise<string | undefined> {
-        return await this.tochkaSDK_.OpenBanking.getCustomersList(this.tochkaSDK_.getApiVersion())
-            .then(({data}) => {
-                return data.Data.Customer.find(customer => customer.customerType === ExternalTypeEnum.Business)?.customerCode
-            }).catch((err: Error) => {
-                this.logger_.error(`Can not get customer list ${JSON.stringify(err, null, 2)}`)
-                return undefined
-            })
+        const configured = this.options_.customerCode
+        try {
+            const {data} = await this.tochkaSDK_.OpenBanking.getCustomersList(
+                this.tochkaSDK_.getApiVersion()
+            )
+            return pickTochkaCustomerCode(configured, data.Data.Customer)
+        } catch (err: unknown) {
+            this.logger_.error(
+                `Can not get customer list ${err instanceof Error ? err.message : String(err)}`
+            )
+            const fallback = pickTochkaCustomerCode(configured, [])
+            if (fallback) {
+                return fallback
+            }
+            if (err instanceof Error) {
+                throw new MedusaError(
+                    MedusaError.Types.UNEXPECTED_STATE,
+                    `Cannot load Tochka customer code: ${err.message}`
+                )
+            }
+            return undefined
+        }
     }
 }
 

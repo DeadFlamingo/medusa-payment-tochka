@@ -9,6 +9,7 @@ import {
   mergeRuntimeTochkaOptions,
   mergeStoredTochkaOptions,
   parsePaymentModes,
+  pickTochkaCustomerCode,
   prettifyMaskedSecret,
   readEnvTochkaOptions,
   toPublicTochkaOptions,
@@ -51,6 +52,7 @@ describe("Tochka stored options", () => {
       TOCHKA_PAYMENT_MODES: "sbp,card",
       TOCHKA_WITH_RECEIPT: "false",
       STOREFRONT_URL: "https://shop.example/",
+      TOCHKA_CUSTOMER_CODE: "300000092",
     })
 
     expect(fromEnv.client_id).toBe("env-client")
@@ -58,6 +60,7 @@ describe("Tochka stored options", () => {
     expect(fromEnv.with_receipt).toBe(false)
     expect(fromEnv.payment_mode).toEqual(["sbp", "card"])
     expect(fromEnv.storefront_url).toBe("https://shop.example")
+    expect(fromEnv.customer_code).toBe("300000092")
 
     const merged = mergeStoredTochkaOptions(fromEnv, {
       client_id: "admin-client",
@@ -161,5 +164,30 @@ describe("Tochka stored options", () => {
     expect(() => validateStorefrontUrl("javascript:alert(1)")).toThrow(
       /http or https/
     )
+  })
+})
+
+describe("pickTochkaCustomerCode", () => {
+  it("prefers the configured customer code over OpenBanking records", () => {
+    expect(
+      pickTochkaCustomerCode("300000092", [
+        { customerType: "Business", customerCode: "from-api" },
+      ])
+    ).toBe("300000092")
+  })
+
+  it("uses a Business customer, then any customer with a code", () => {
+    expect(
+      pickTochkaCustomerCode("", [
+        { customerType: "Individual", customerCode: "ind-1" },
+        { customerType: "Business", customerCode: "biz-1" },
+      ])
+    ).toBe("biz-1")
+    expect(
+      pickTochkaCustomerCode(undefined, [
+        { customerType: "Individual", customerCode: "ind-1" },
+      ])
+    ).toBe("ind-1")
+    expect(pickTochkaCustomerCode("  ", [])).toBeUndefined()
   })
 })
