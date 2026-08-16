@@ -45,6 +45,7 @@ import {describeTochkaFailure, generateTochkaReceipt, resolveTochkaPaymentModes,
 import {
     mergeRuntimeTochkaOptions,
     pickTochkaCustomerCode,
+    preferReachablePaymentUrl,
     runtimeOptionsFingerprint,
     RuntimeTochkaOptions,
     toRuntimeTochkaOptions,
@@ -163,28 +164,6 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
         return this.options_
     }
 
-    private sameOriginUrl(
-        storefrontUrl: string,
-        candidate: unknown,
-        fallback: string
-    ) {
-        if (typeof candidate !== 'string') {
-            return fallback
-        }
-
-        try {
-            const allowed = new URL(storefrontUrl)
-            const actual = new URL(candidate)
-            if (actual.origin === allowed.origin && actual.protocol === allowed.protocol) {
-                return candidate
-            }
-        } catch {
-            return fallback
-        }
-
-        return fallback
-    }
-
     private normalizePaymentParameters(
         extra?: Record<string, unknown>
     ): Partial<AcquiringCreatePaymentOperationRequestModel> {
@@ -202,16 +181,23 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
             extra?.payment_mode
         ) as AcquiringCreatePaymentOperationRequestModel["paymentMode"]
 
-        // Redirects are derived from the configured storefront origin. Caller-supplied
-        // URLs are accepted only when they share that origin; tax/merchant fields stay
-        // on provider options so a Store API client cannot steer the payment.
+        // Redirects must be browser-reachable. A stored 0.0.0.0 listen address
+        // must not override STOREFRONT_URL from the trusted payment payload.
         const storefrontUrl = (this.options_.storefrontUrl || '').replace(/\/$/, '')
         const cartId = (extra?.cart as { id?: unknown } | undefined)?.id
-        if (storefrontUrl && typeof cartId === 'string' && cartId.length > 0) {
+        if (typeof cartId === 'string' && cartId.length > 0) {
             const fallbackRedirectUrl = `${storefrontUrl}/api/capture-payment/${encodeURIComponent(cartId)}`
             const fallbackFailRedirectUrl = `${storefrontUrl}/checkout?step=review&error=payment_failed`
-            res.redirectUrl = this.sameOriginUrl(storefrontUrl, extra?.redirectUrl, fallbackRedirectUrl)
-            res.failRedirectUrl = this.sameOriginUrl(storefrontUrl, extra?.failRedirectUrl, fallbackFailRedirectUrl)
+            res.redirectUrl = preferReachablePaymentUrl(
+                storefrontUrl,
+                extra?.redirectUrl,
+                fallbackRedirectUrl
+            )
+            res.failRedirectUrl = preferReachablePaymentUrl(
+                storefrontUrl,
+                extra?.failRedirectUrl,
+                fallbackFailRedirectUrl
+            )
         }
 
         const sessionId = extra?.session_id as string
@@ -418,6 +404,12 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
         this.logger_.debug(`TochkaBase.authorizePayment input:\n${JSON.stringify(input, null, 2)}`)
 
         const output = await this.getPaymentStatus(input)
+        if (output.status === PaymentSessionStatus.CAPTURED) {
+            return {
+                ...output,
+                status: PaymentSessionStatus.AUTHORIZED,
+            }
+        }
         this.logger_.debug(`TochkaBase.authorizePayment output:\n${JSON.stringify(output, null, 2)}`)
 
         return output

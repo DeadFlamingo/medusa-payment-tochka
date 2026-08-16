@@ -285,6 +285,61 @@ export function readEnvTochkaOptions(
   })
 }
 
+export function isReachableStorefrontUrl(value: unknown): boolean {
+  if (typeof value !== "string" || !value.trim()) {
+    return false
+  }
+
+  try {
+    const parsed = new URL(value.trim())
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return false
+    }
+
+    const host = parsed.hostname.replace(/^\[|\]$/g, "").toLowerCase()
+    return Boolean(host) && host !== "0.0.0.0" && host !== "::"
+  } catch {
+    return false
+  }
+}
+
+export function preferReachablePaymentUrl(
+  configuredStorefrontUrl: string,
+  candidate: unknown,
+  fallback: string
+): string {
+  if (isReachableStorefrontUrl(configuredStorefrontUrl)) {
+    if (typeof candidate === "string") {
+      try {
+        const allowed = new URL(configuredStorefrontUrl)
+        const actual = new URL(candidate)
+        if (
+          actual.origin === allowed.origin &&
+          actual.protocol === allowed.protocol
+        ) {
+          return candidate
+        }
+      } catch {
+        // Keep the configured origin instead of a forged or unparsable URL.
+      }
+    }
+
+    return isReachableStorefrontUrl(fallback) ? fallback : configuredStorefrontUrl
+  }
+
+  if (isReachableStorefrontUrl(candidate)) {
+    return String(candidate)
+  }
+
+  if (isReachableStorefrontUrl(fallback)) {
+    return fallback
+  }
+
+  throw new Error(
+    "Storefront URL cannot be a bind address like 0.0.0.0. Set the public site URL in Admin → Tochka or STOREFRONT_URL."
+  )
+}
+
 export function mergeStoredTochkaOptions(
   base: StoredTochkaOptions,
   overlay: unknown
@@ -297,7 +352,18 @@ export function mergeStoredTochkaOptions(
   return normalizeStoredTochkaOptions({
     ...base,
     ...Object.fromEntries(
-      Object.entries(patch).filter(([, value]) => value !== undefined)
+      Object.entries(patch).filter(([key, value]) => {
+        if (value === undefined) {
+          return false
+        }
+
+        // 0.0.0.0 is a listen address, not a browser URL. Keep STOREFRONT_URL.
+        if (key === "storefront_url" && !isReachableStorefrontUrl(value)) {
+          return value === ""
+        }
+
+        return true
+      })
     ),
   })
 }
@@ -436,6 +502,12 @@ export function validateStorefrontUrl(value: string): void {
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new Error("Storefront URL must use http or https.")
+  }
+
+  if (!isReachableStorefrontUrl(trimmed)) {
+    throw new Error(
+      "Storefront URL cannot be a bind address like 0.0.0.0. Use the public site URL."
+    )
   }
 }
 

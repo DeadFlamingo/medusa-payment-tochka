@@ -10,6 +10,7 @@ import {
   mergeStoredTochkaOptions,
   parsePaymentModes,
   pickTochkaCustomerCode,
+  preferReachablePaymentUrl,
   prettifyMaskedSecret,
   readEnvTochkaOptions,
   toPublicTochkaOptions,
@@ -163,6 +164,32 @@ describe("Tochka stored options", () => {
     expect(() => validateStorefrontUrl("")).not.toThrow()
     expect(() => validateStorefrontUrl("javascript:alert(1)")).toThrow(
       /http or https/
+    )
+    expect(() => validateStorefrontUrl("https://0.0.0.0:8010")).toThrow(
+      /bind address/
+    )
+  })
+
+  it("ignores a stored 0.0.0.0 storefront URL so env keeps the public site", () => {
+    const fromEnv = readEnvTochkaOptions({
+      STOREFRONT_URL: "https://deadflamingo.space",
+    })
+    const merged = mergeStoredTochkaOptions(fromEnv, {
+      storefront_url: "https://0.0.0.0:8010",
+    })
+
+    expect(merged.storefront_url).toBe("https://deadflamingo.space")
+  })
+
+  it("uses the trusted public fail URL when Admin stored a listen address", () => {
+    expect(
+      preferReachablePaymentUrl(
+        "https://0.0.0.0:8010",
+        "https://deadflamingo.space/checkout?step=review&error=payment_failed",
+        "https://0.0.0.0:8010/checkout?step=review&error=payment_failed"
+      )
+    ).toBe(
+      "https://deadflamingo.space/checkout?step=review&error=payment_failed"
     )
   })
 })
