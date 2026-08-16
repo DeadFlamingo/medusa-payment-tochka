@@ -1,36 +1,26 @@
+import { unsealStoredTochkaSecrets } from "./tochka-secret-seal"
+import {
+  TOCHKA_PAYMENT_MODES,
+  TOCHKA_TAX_SYSTEM_CODES,
+  TOCHKA_VAT_TYPES,
+  type TochkaPaymentMode,
+  type TochkaTaxSystemCode,
+  type TochkaVatType,
+} from "./tochka-options-shared"
+
+export {
+  TOCHKA_PAYMENT_MODES,
+  TOCHKA_TAX_SYSTEM_CODES,
+  TOCHKA_VAT_TYPES,
+  prettifyMaskedSecret,
+} from "./tochka-options-shared"
+export type {
+  TochkaPaymentMode,
+  TochkaTaxSystemCode,
+  TochkaVatType,
+} from "./tochka-options-shared"
+
 export const TOCHKA_STORE_METADATA_KEY = "tochka"
-
-export const TOCHKA_PAYMENT_MODES = [
-  "card",
-  "sbp",
-  "tinkoff",
-  "dolyame",
-] as const
-
-export const TOCHKA_TAX_SYSTEM_CODES = [
-  "osn",
-  "usn_income",
-  "usn_income_outcome",
-  "esn",
-  "patent",
-] as const
-
-export const TOCHKA_VAT_TYPES = [
-  "none",
-  "vat0",
-  "vat5",
-  "vat7",
-  "vat10",
-  "vat20",
-  "vat105",
-  "vat107",
-  "vat110",
-  "vat120",
-] as const
-
-export type TochkaPaymentMode = (typeof TOCHKA_PAYMENT_MODES)[number]
-export type TochkaTaxSystemCode = (typeof TOCHKA_TAX_SYSTEM_CODES)[number]
-export type TochkaVatType = (typeof TOCHKA_VAT_TYPES)[number]
 
 export type StoredTochkaOptions = {
   jwt_token: string
@@ -160,10 +150,6 @@ export function maskSecret(value: string): string {
     return trimmed
   }
   return `${trimmed.slice(0, 5)}***${trimmed.slice(-2)}`
-}
-
-export function prettifyMaskedSecret(value: string): string {
-  return value.replace("***", "•••")
 }
 
 export function isMaskedOrEmptySecret(value: string | undefined): boolean {
@@ -336,7 +322,7 @@ export function preferReachablePaymentUrl(
   }
 
   throw new Error(
-    "Storefront URL cannot be a bind address like 0.0.0.0. Set the public site URL in Admin → Tochka or STOREFRONT_URL."
+    "Storefront URL cannot be a bind address like 0.0.0.0. Set the public site URL in Settings → Tochka or STOREFRONT_URL."
   )
 }
 
@@ -344,9 +330,10 @@ export function mergeStoredTochkaOptions(
   base: StoredTochkaOptions,
   overlay: unknown
 ): StoredTochkaOptions {
+  const unsealed = unsealStoredTochkaSecrets(overlay)
   const patch =
-    overlay && typeof overlay === "object"
-      ? (overlay as Record<string, unknown>)
+    unsealed && typeof unsealed === "object"
+      ? (unsealed as Record<string, unknown>)
       : {}
 
   return normalizeStoredTochkaOptions({

@@ -10,6 +10,7 @@ import {
   validateStorefrontUrl,
   validateWebhookPublicKeyJson,
 } from "../../lib/tochka-options"
+import { sealStoredTochkaSecrets } from "../../lib/tochka-secret-seal"
 
 type ComposeTochkaMetadataInput = {
   store: {
@@ -52,7 +53,9 @@ export const composeTochkaMetadataStep = createStep(
       readEnvTochkaOptions(),
       existingMetadata[TOCHKA_STORE_METADATA_KEY]
     )
-    const nextTochka = applyTochkaOptionsPatch(current, data)
+    const nextTochka = sealStoredTochkaSecrets(
+      applyTochkaOptionsPatch(current, data)
+    )
 
     return new StepResponse({
       storeId: store.id,

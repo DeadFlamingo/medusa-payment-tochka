@@ -1,5 +1,5 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
-import { CreditCard, Spinner } from "@medusajs/icons"
+import { Spinner } from "@medusajs/icons"
 import {
   Badge,
   Button,
@@ -18,26 +18,28 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
+import type {
+  PublicTochkaOptions,
+  TochkaOptionsPatch,
+  TochkaPaymentMode,
+  TochkaTaxSystemCode,
+  TochkaVatType,
+} from "../../../../lib/tochka-options"
 import {
   TOCHKA_PAYMENT_MODES,
   TOCHKA_TAX_SYSTEM_CODES,
   TOCHKA_VAT_TYPES,
-  type PublicTochkaOptions,
-  type TochkaOptionsPatch,
-  type TochkaPaymentMode,
-  type TochkaTaxSystemCode,
-  type TochkaVatType,
   prettifyMaskedSecret,
-} from "../../../lib/tochka-options"
+} from "../../../../lib/tochka-options-shared"
 import {
   ActionMenu,
   Header,
   SectionRow,
   SettingsCard,
   TwoColumnLayout,
-} from "../../components"
-import { useTochkaOptions, useUpdateTochkaOptions } from "../../hooks"
-import { getTochkaCopy, type TochkaCopy } from "../../lib/copy"
+} from "../../../components"
+import { useTochkaOptions, useUpdateTochkaOptions } from "../../../hooks"
+import { getTochkaCopy, type TochkaCopy } from "../../../lib/copy"
 
 type EditModal =
   | "general"
@@ -886,7 +888,6 @@ const SwitchField = ({
 
 export const config = defineRouteConfig({
   label: "Tochka",
-  icon: CreditCard,
 })
 
 export const handle = {

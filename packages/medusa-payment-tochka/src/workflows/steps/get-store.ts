@@ -7,6 +7,11 @@ import {
   readEnvTochkaOptions,
   TOCHKA_STORE_METADATA_KEY,
 } from "../../lib/tochka-options"
+import {
+  hasPlaintextTochkaSecrets,
+  resolveTochkaSealSecret,
+  sealStoredTochkaSecrets,
+} from "../../lib/tochka-secret-seal"
 
 export const getStoreStep = createStep(
   "get-tochka-store-step",
@@ -27,15 +32,19 @@ export const getStoreStep = createStep(
       )
     }
 
-    if (hasTochkaStoreMetadata(store.metadata)) {
+    const rawStored = (store.metadata as Record<string, unknown> | undefined)?.[
+      TOCHKA_STORE_METADATA_KEY
+    ]
+    const shouldPersist =
+      !hasTochkaStoreMetadata(store.metadata) ||
+      (Boolean(resolveTochkaSealSecret()) && hasPlaintextTochkaSecrets(rawStored))
+
+    if (!shouldPersist) {
       return new StepResponse(store)
     }
 
-    const seeded = mergeStoredTochkaOptions(
-      readEnvTochkaOptions(),
-      (store.metadata as Record<string, unknown> | undefined)?.[
-        TOCHKA_STORE_METADATA_KEY
-      ]
+    const seeded = sealStoredTochkaSecrets(
+      mergeStoredTochkaOptions(readEnvTochkaOptions(), rawStored)
     )
 
     const updatedStore = await storeModuleService.updateStores(store.id, {

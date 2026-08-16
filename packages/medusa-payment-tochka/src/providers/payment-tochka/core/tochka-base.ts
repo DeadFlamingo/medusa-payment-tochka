@@ -250,7 +250,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
             if (!customerCode) {
                 throw new MedusaError(
                     MedusaError.Types.INVALID_DATA,
-                    "Tochka customer code is missing. Set TOCHKA_CUSTOMER_CODE or save it in Admin → Tochka."
+                    "Tochka customer code is missing. Set TOCHKA_CUSTOMER_CODE or save it in Settings → Tochka."
                 )
             }
 
@@ -624,16 +624,16 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
             const jwks = jose.createLocalJWKSet({
                 keys: [this.publicKeyJWK_]
             });
-            const {payload, protectedHeader} = await jose.jwtVerify(webhookData.data as unknown as string, jwks)
-            this.logger_.info('JWT Verified Successfully!');
-            this.logger_.info(`Payload: ${JSON.stringify(payload, null, 2)}`);
-            this.logger_.info(`Protected Header: ${JSON.stringify(protectedHeader, null, 2)}`);
-            // For now, we'll do basic validation on the webhook payload structure
+            const {payload} = await jose.jwtVerify(webhookData.data as unknown as string, jwks)
             const webhookPayload = payload as TochkaWebhookPayload
 
             if (!webhookPayload.operationId || !webhookPayload.paymentType || !webhookPayload.amount || !webhookPayload.status || !webhookPayload.webhookType) {
-                throw new Error(`Webhook payload is corrupted: ${payload}`);
+                throw new Error("Webhook payload is corrupted")
             }
+
+            this.logger_.debug(
+                `Tochka webhook JWT verified: operationId=${webhookPayload.operationId} status=${webhookPayload.status}`
+            )
 
             return webhookPayload
         } catch (e) {

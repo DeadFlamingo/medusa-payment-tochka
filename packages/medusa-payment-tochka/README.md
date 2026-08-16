@@ -104,7 +104,7 @@ plugins: [
 
 ## Admin
 
-After the plugin is registered, Medusa Admin shows **Extensions → Tochka**.
+After the plugin is registered, Medusa Admin shows **Settings → Extensions → Tochka**.
 
 The page stores settings on the store record and applies them on the next payment without a backend restart:
 
