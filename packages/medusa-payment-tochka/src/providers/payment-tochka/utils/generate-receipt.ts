@@ -1,4 +1,5 @@
 import {formatCurrency} from "./format-currency"
+import {toTochkaUnitAmount} from "./tochka-amount"
 import {
     Measure,
     PaymentObject,
@@ -24,12 +25,16 @@ export function generateTochkaReceipt(cart: Record<string, any>, taxItem?: VatTy
         throw new Error("Tochka receipt requires cart items")
     }
 
+    if (typeof email !== "string" || !email.trim()) {
+        throw new Error("Tochka receipt requires a customer email")
+    }
+
     const fullName = `${shippingAddress?.last_name || ''} ${shippingAddress?.first_name || ''}`.trim()
 
     const client: ReceiptClientModel = {
         email: email,
         name: fullName || 'Customer somebody',
-        ...(phone ? {phoneNumber: phone} : {}),
+        ...(phone ? {phone: phone} : {}),
     }
 
     const receiptItems: ReceiptItemModelInput[] = items.map((item) => ({
@@ -37,9 +42,11 @@ export function generateTochkaReceipt(cart: Record<string, any>, taxItem?: VatTy
             ? `${item.product_title} (${item.variant_title})`
             : item.product_title as string,
         quantity: item.quantity,
-        amount: parseFloat(formatCurrency(item.total, currencyCode)),
+        amount: parseFloat(formatCurrency(toTochkaUnitAmount(item), currencyCode)),
         measure: Measure.ValueШт,
-        paymentObject: item.product_type?.toLowerCase() === "service" ? PaymentObject.Service : PaymentObject.Goods,
+        paymentObject: item.is_giftcard || item.product?.is_giftcard || item.product_type?.toLowerCase() === "service"
+            ? PaymentObject.Service
+            : PaymentObject.Goods,
         vatType: taxItem || VatType.Vat0,
     }))
 

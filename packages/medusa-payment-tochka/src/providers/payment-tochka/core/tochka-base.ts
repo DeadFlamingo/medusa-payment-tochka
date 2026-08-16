@@ -35,14 +35,13 @@ import {
     AcquiringCreatePaymentOperationResponseModel,
     AcquiringCreatePaymentOperationWithReceiptRequestModel,
     AcquiringGetPaymentOperationListItemModel,
-    AcquiringPaymentMode,
     AcquiringPaymentStatus,
     TochkaBankAcquiring,
     TochkaBankSDK,
     TochkaBankWebhook,
 } from "tochka-sdk";
 import {PaymentOptions, TochkaOptions, TochkaWebhookPayload} from "../types"
-import {generateTochkaReceipt} from "../utils"
+import {describeTochkaFailure, generateTochkaReceipt, resolveTochkaPaymentModes, toTochkaAmount} from "../utils"
 import {
     mergeRuntimeTochkaOptions,
     pickTochkaCustomerCode,
@@ -198,10 +197,10 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
             this.options_.preAuthorization ??
             false
 
-        res.paymentMode =
-            this.paymentOptions?.paymentMode ??
-            this.options_.paymentMode ??
-            [AcquiringPaymentMode.Card]
+        res.paymentMode = resolveTochkaPaymentModes(
+            this.paymentOptions?.paymentMode ?? this.options_.paymentMode,
+            extra?.payment_mode
+        ) as AcquiringCreatePaymentOperationRequestModel["paymentMode"]
 
         // Redirects are derived from the configured storefront origin. Caller-supplied
         // URLs are accepted only when they share that origin; tax/merchant fields stay
@@ -275,7 +274,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
 
                 const createPayload: AcquiringCreatePaymentOperationWithReceiptRequestModel = {
                     customerCode: customerCode,
-                    amount: parseFloat(amount as string),
+                    amount: toTochkaAmount(amount),
                     ...receiptPaymentParams,
                     ...receipt,
                 } as AcquiringCreatePaymentOperationWithReceiptRequestModel
@@ -289,7 +288,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
                 const standardPaymentParameter = this.normalizePaymentParameters(data)
                 const createPayload: AcquiringCreatePaymentOperationRequestModel = {
                     customerCode: customerCode,
-                    amount: parseFloat(amount as string),
+                    amount: toTochkaAmount(amount),
                     ...standardPaymentParameter,
                 } as AcquiringCreatePaymentOperationRequestModel
 
@@ -311,7 +310,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
 
             return output
         } catch (e) {
-            this.logger_.error(`Can not initiate payment: ${JSON.stringify(e?.error)}`)
+            this.logger_.error(`Can not initiate payment: ${describeTochkaFailure(e)}`)
             throw this.buildError("An error occurred in initiatePayment", e)
         }
     }
@@ -658,7 +657,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
     /**
      * Helper to build errors with additional context.
      */
-    protected buildError(message: string, error: Error | AxiosError): Error {
+    protected buildError(message: string, error: unknown): Error {
         if (error instanceof MedusaError) {
             return error
         }
@@ -670,7 +669,7 @@ abstract class TochkaBase extends AbstractPaymentProvider<TochkaOptions> {
         }
         return new MedusaError(
             MedusaError.Types.UNEXPECTED_STATE,
-            `${message}: ${error.message}`.trim()
+            `${message}: ${describeTochkaFailure(error)}`.trim()
         )
     }
 
